@@ -1,0 +1,20 @@
+CompileFlags:
+  Add:
+    - -D__AVR_ATmega328P__
+    - -DF_CPU=16000000UL
+    - -D_SFR_ASM_COMPAT=1
+    - --target=avr
+    - -nostdinc
+    - -isystem/opt/homebrew/Cellar/avr-gcc@9/9.5.0/avr/include
+    - -isystem/opt/homebrew/Cellar/avr-gcc@9/9.5.0/lib/avr-gcc/9/gcc/avr/9.5.0/include
+    - -ferror-limit=0
+  Remove:
+    - -mmcu=*
+    - -isysroot*
+    - --sysroot*
+
+Diagnostics:
+  Suppress:
+    - pp_expr_bad_token_start_expr
+    - pp_expr_bad_token_binop
+    - drv_unknown_argument
