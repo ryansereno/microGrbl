@@ -1,7 +1,6 @@
 /* ============================================================================
  * stepper_jog.c  —  bare-metal AVR stepper jogger (worksheet)
  * ============================================================================
- *
  *              ATmega328P pin reference
  *
  *              +--------\/--------+
@@ -21,6 +20,28 @@
  *  PB0 / D8    |14             15| PB1 / D9
  *              +------------------+
  *
+ * ----------------------------------------------------------------------------
+ *               * AVR GPIO Registers (PORTx, DDRx, PINx)
+ *
+ * Each port (B, C, D on the 328P) has THREE one-byte registers.
+ * Each bit in a register corresponds to one pin on that port.
+ *
+ *   DDRx  — Data Direction Register
+ *           Bit = 1  -> pin is an OUTPUT
+ *           Bit = 0  -> pin is an INPUT   (default on reset)
+ *           Set once during init. Don't touch it again.
+ *
+ *   PORTx — Port Output Register  (dual role!)
+ *           If pin is OUTPUT: bit = the value driven on the pin (1=high, 0=low)
+ *           If pin is INPUT:  bit = 1 enables internal pull-up, 0 = floating
+ *           This is the register you toggle during normal operation.
+ *
+ *   PINx  — Port Input Register
+ *           Reads the current electrical state of the pin (regardless of dir).
+ *           Quirk: writing 1 to a PINx bit TOGGLES the matching PORTx bit
+ *                  (one-cycle toggle — used in grbl's step ISR).
+ *
+ * ----------------------------------------------------------------------------
  *            Bit operation reference:
  *
  *           // Set bit n
@@ -38,6 +59,7 @@
  *           // Check if bit n is clear
  *           if (!(reg & (1 << n))) { }
  *
+ * ----------------------------------------------------------------------------
  * Target:   ATmega328P @ 16 MHz (Arduino Uno / Nano / bare chip w/ external
  * xtal) Driver:   A4988 / DRV8825 / TMC2208 (any STEP+DIR-style stepper driver)
  * Purpose:  Learn the same skeleton grbl uses to drive steppers. Nothing more.
@@ -120,29 +142,6 @@
 #define JOG_DIR 1
 #define JOG_STEPS 50
 
-/* --- 6. Bit-twiddling helpers -----------------------------------------------
- * The three AVR idioms you'll use constantly. Commit these to muscle memory:
- *
- *   set bit N of R:     R |=  (1 << N);
- *   clear bit N of R:   R &= ~(1 << N);
- *   toggle bit N of R:  R ^=  (1 << N);
- *   read bit N of R:    (R >> N) & 1     // or: !!(R & (1 << N))
- *
- * `volatile` tells the compiler "this memory can change outside normal program
- * flow, don't cache it in a register." Every I/O register must be accessed
- * through a volatile pointer. avr/io.h already does this — but when we take a
- * pointer to one ourselves, we have to preserve that volatile.
- */
-static inline void pin_high(volatile uint8_t *reg, uint8_t bit) {
-  /* TODO: set `bit` in *reg */
-  *reg |= (1 << bit);
-}
-
-static inline void pin_low(volatile uint8_t *reg, uint8_t bit) {
-  /* TODO: clear `bit` in *reg */
-  *reg &= ~(1 << bit);
-}
-
 /* --- 7. Configure pins as outputs -------------------------------------------
  * Set the DDR bits for STEP, DIR, (ENABLE) to 1 so the MCU drives them.
  * Then:
@@ -152,9 +151,20 @@ static inline void pin_low(volatile uint8_t *reg, uint8_t bit) {
  */
 static void pins_init(void) {
   /* TODO: make STEP, DIR, ENABLE outputs                                    */
+  STEPPER_DDR |= (1 << STEP_BIT) | (1 << DIR_BIT) | (1 << ENABLE_BIT);
+
   /* TODO: drive ENABLE low to enable the driver                             */
+  STEPPER_PORT |= (1 << ENABLE_BIT);
+
   /* TODO: set DIR according to JOG_DIR                                      */
+  if (JOG_DIR) {
+    STEPPER_PORT |= (1 << DIR_BIT);
+  } else {
+    STEPPER_PORT &= ~(1 << DIR_BIT);
+  }
   /* TODO: ensure STEP starts low                                            */
+
+  STEPPER_PORT &= ~(1 << STEP_BIT);
 }
 
 /* --- 8. One step ------------------------------------------------------------
