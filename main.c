@@ -26,18 +26,18 @@
  * Each port (B, C, D on the 328P) has THREE one-byte registers.
  * Each bit in a register corresponds to one pin on that port.
  *
- *   DDRx  — Data Direction Register
- *           Bit = 1  -> pin is an OUTPUT
- *           Bit = 0  -> pin is an INPUT   (default on reset)
- *           Set once during init. Don't touch it again.
+ *   DDRx  — Data Direction Register = who drives this pin? Me (1) or the
+ * outside world (0) Bit = 1  -> pin is an OUTPUT Bit = 0  -> pin is an INPUT
+ * (default on reset) Set once during init. Don't touch it again.
  *
- *   PORTx — Port Output Register  (dual role!)
- *           If pin is OUTPUT: bit = the value driven on the pin (1=high, 0=low)
- *           If pin is INPUT:  bit = 1 enables internal pull-up, 0 = floating
- *           This is the register you toggle during normal operation.
+ *   PORTx — Port Output Register  (dual role!) -  if I'm driving: what value?
+ * (0 or 1)? if outside is driving: pull-up on(1) or off (0)? If pin is OUTPUT:
+ * bit = the value driven on the pin (1=high, 0=low) If pin is INPUT:  bit = 1
+ * enables internal pull-up, 0 = floating This is the register you toggle during
+ * normal operation.
  *
- *   PINx  — Port Input Register
- *           Reads the current electrical state of the pin (regardless of dir).
+ *   PINx  — Port Input Register -  sensor, tells me the actual voltage on the
+ * wire Reads the current electrical state of the pin (regardless of dir).
  *           Quirk: writing 1 to a PINx bit TOGGLES the matching PORTx bit
  *                  (one-cycle toggle — used in grbl's step ISR).
  *
@@ -120,6 +120,7 @@
  */
 #define STEPPER_DDR DDRD
 #define STEPPER_PORT PORTD
+#define STEPPER_PIN PIND
 
 /* --- 4. Tuning knobs --------------------------------------------------------
  * STEP_PULSE_US:   how long STEP stays HIGH. >= driver minimum.
@@ -178,7 +179,12 @@ static void pins_init(void) {
  * our constants are #defines. If you ever want a runtime-variable delay,
  * either call _delay_us(1) in a loop or (better) use a hardware timer.
  */
-static void step_once(void) { /* TODO */ }
+static void step_once(void) {
+  STEPPER_PORT |= (1 << STEP_BIT);
+  _delay_us(STEP_PULSE_US);
+  STEPPER_PORT &= ~(1 << STEP_BIT);
+  _delay_us(STEP_PERIOD_US - STEP_PULSE_US);
+}
 
 /* --- 9. Jog -----------------------------------------------------------------
  * Set direction, give the driver a microsecond to latch it, then emit
