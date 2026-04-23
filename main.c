@@ -192,8 +192,17 @@ static void step_once(void) {
  */
 static void jog(uint8_t dir, uint16_t steps) {
   /* TODO: set DIR pin from `dir`                                            */
+  if (dir) {
+    STEPPER_PORT |= (1 << DIR_BIT);
+  } else {
+    STEPPER_PORT &= ~(1 << DIR_BIT);
+  }
   /* TODO: _delay_us(1) or so to let DIR settle before first STEP edge       */
+  _delay_us(1);
   /* TODO: for (uint16_t i = 0; i < steps; i++) step_once();                 */
+  for (uint16_t i = 0; i < steps; i++) {
+    step_once();
+  }
 }
 
 /* --- 10. main ---------------------------------------------------------------
