@@ -190,7 +190,8 @@ static void step_once(void) {
  * Set direction, give the driver a microsecond to latch it, then emit
  * `steps` pulses.
  */
-static void jog(uint8_t dir, uint16_t steps) {
+typedef enum { DIR_REV = 0, DIR_FWD = 1 } dir_t;
+static void jog(dir_t dir, uint16_t steps) {
   /* TODO: set DIR pin from `dir`                                            */
   if (dir) {
     STEPPER_PORT |= (1 << DIR_BIT);
