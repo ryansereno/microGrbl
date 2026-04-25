@@ -225,6 +225,20 @@
  */
 #define BUTTON_BIT PD5
 
+static uint8_t button_pressed(void) {
+  if (!(STEPPER_PIN & (1 << BUTTON_BIT))) {
+    _delay_ms(50);
+
+    if (!(STEPPER_PIN & (1 << BUTTON_BIT))) {
+      return 1;
+    } else {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
+}
+
 /* --- 7. Configure pins as outputs -------------------------------------------
  * Set the DDR bits for STEP, DIR, (ENABLE) to 1 so the MCU drives them.
  * Then:
@@ -242,7 +256,7 @@ static void pins_init(void) {
   /* drive ENABLE low to enable the driver*/
   STEPPER_PORT |= (1 << ENABLE_BIT);
 
-  /* set BUTTON to pull-up*/
+  /* set BUTTON pin to use  pull-up resistor*/
   STEPPER_PORT |= (1 << BUTTON_BIT);
 
   /* set DIR according to JOG_DIR*/
@@ -280,15 +294,15 @@ static void step_once(void) {
  */
 typedef enum { DIR_REV = 0, DIR_FWD = 1 } dir_t;
 static void jog(dir_t dir, uint16_t steps) {
-  /* TODO: set DIR pin from `dir`                                            */
+  /* set DIR pin from `dir`                                            */
   if (dir) {
     STEPPER_PORT |= (1 << DIR_BIT);
   } else {
     STEPPER_PORT &= ~(1 << DIR_BIT);
   }
-  /* TODO: _delay_us(1) or so to let DIR settle before first STEP edge       */
+  /*  _delay_us(1) or so to let DIR settle before first STEP edge       */
   _delay_us(1);
-  /* TODO: for (uint16_t i = 0; i < steps; i++) step_once();                 */
+  /* for (uint16_t i = 0; i < steps; i++) step_once();                 */
   for (uint16_t i = 0; i < steps; i++) {
     step_once();
   }
@@ -305,6 +319,10 @@ int main(void) {
 
   for (;;) {
     /* idle forever. grbl would sleep the CPU here and wake on interrupt. */
+    if (button_pressed()) {
+      // 90 degrees at 1/16 microstepping = 800 steps
+      jog(DIR_FWD, 800);
+    }
   }
 
   return 0; /* never reached */
