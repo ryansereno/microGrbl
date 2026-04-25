@@ -143,6 +143,88 @@
 #define JOG_DIR 1
 #define JOG_STEPS 50
 
+/* --- 6. Button input --------------------------------------------------------
+ * Goal: trigger one jog every time a momentary pushbutton is pressed.
+ *
+ * --- Wiring -----------------------------------------------------------------
+ * The lazy/standard way: one leg of the button to your chosen MCU pin, the
+ * other leg to GND. No external resistor needed — we'll use the AVR's
+ * built-in pull-up.
+ *
+ *     MCU pin  ----+
+ *                  |
+ *                  /  pushbutton (NO, momentary)
+ *                  |
+ *     GND      ----+
+ *
+ * Idle:    pull-up holds the pin HIGH (reads 1).
+ * Pressed: button shorts pin to GND, pin goes LOW (reads 0).
+ * So "pressed" is an *active-low* signal. Don't get tripped up by the
+ * inversion — every hobbyist does at least once.
+ *
+ * --- Pin choice -------------------------------------------------------------
+ * PORTD bits 2,3,4 are taken by the stepper. PD5, PD6, PD7 are all free,
+ * or you can hop ports entirely. PD2 / PD3 are special (they're INT0 / INT1,
+ * the external interrupt pins) — nice if you ever want hardware interrupts,
+ * but here we'll just poll in main(). Any free pin is fine.
+ *
+ * Suggestion: PD5 (Arduino D5). Define BUTTON_BIT, BUTTON_DDR, BUTTON_PORT,
+ * BUTTON_PIN below — same pattern as the stepper.
+ *
+ * --- The three registers, one more time ------------------------------------
+ *   DDRx  bit = 0   -> pin is INPUT (this is the reset default, but be
+ *                      explicit; future-you will thank you).
+ *   PORTx bit = 1   -> enable internal pull-up (~20-50k to VCC).
+ *   PINx  bit       -> read the live electrical state. 0 = pressed,
+ *                      1 = released (because of the active-low wiring).
+ *
+ * --- Debouncing -------------------------------------------------------------
+ * Mechanical contacts bounce. For ~1-20ms after the button moves, the signal
+ * rapidly oscillates between HIGH and LOW as the metal contacts chatter. If
+ * you naively poll PINx and fire on every LOW, one physical press will
+ * trigger your jog 3-15 times. You will absolutely see this on real hardware.
+ *
+ * Two common fixes — both work, pick one:
+ *
+ *   (a) Delay-after-detect (simple, blocking):
+ *         if (button reads pressed) {
+ *             _delay_ms(20);                    // let the bounce settle
+ *             if (button still reads pressed) { // confirm it's real
+ *                 do_the_thing();
+ *                 while (button still pressed) {} // wait for release
+ *                 _delay_ms(20);                  // debounce the release too
+ *             }
+ *         }
+ *
+ *   (b) State-change detection (cleaner, still blocking _delay_ms):
+ *         track previous stable state; only act on HIGH->LOW transitions;
+ *         require the new state to hold for N ms before accepting it.
+ *
+ * Either way: the *edge* (press event) is what fires the jog, not the level
+ * (held down). Otherwise holding the button = continuous jogging, which may
+ * or may not be what you want — for "90 deg per click", it's not.
+ *
+ * --- TODOs for you ----------------------------------------------------------
+ *   [ ] #define BUTTON_BIT / BUTTON_DDR / BUTTON_PORT / BUTTON_PIN
+ *   [ ] In pins_init() (or a new button_init()):
+ *         - clear DDR bit             (input)
+ *         - set PORT bit              (pull-up on)
+ *   [ ] Write a `button_pressed()` helper that returns 1 only on a fresh
+ *       press edge (not while held). Hint: keep a `static uint8_t prev;`
+ *       inside the function.
+ *   [ ] In main()'s for(;;) loop: if button_pressed(), call jog(...).
+ *   [ ] Test it. Spam the button. If you ever get a double-fire, your
+ *       debounce window is too short — bump it from 20ms to 50ms.
+ *
+ * --- Stretch (don't do this yet) -------------------------------------------
+ * The "right" answer is a pin-change interrupt (PCINT) or INT0/INT1, with a
+ * timer-based debounce flag. Polling is fine for a worksheet — interrupts are
+ * for when main() is busy doing something else and can't be trusted to poll
+ * fast enough.
+ * ============================================================================
+ */
+#define BUTTON_BIT PD5
+
 /* --- 7. Configure pins as outputs -------------------------------------------
  * Set the DDR bits for STEP, DIR, (ENABLE) to 1 so the MCU drives them.
  * Then:
@@ -151,20 +233,26 @@
  *   - leave STEP low, ready for the first rising edge
  */
 static void pins_init(void) {
-  /* TODO: make STEP, DIR, ENABLE outputs                                    */
+  /* make STEP, DIR, ENABLE outputs*/
   STEPPER_DDR |= (1 << STEP_BIT) | (1 << DIR_BIT) | (1 << ENABLE_BIT);
 
-  /* TODO: drive ENABLE low to enable the driver                             */
+  /* make BUTTON input*/
+  STEPPER_DDR &= ~(1 << BUTTON_BIT);
+
+  /* drive ENABLE low to enable the driver*/
   STEPPER_PORT |= (1 << ENABLE_BIT);
 
-  /* TODO: set DIR according to JOG_DIR                                      */
+  /* set BUTTON to pull-up*/
+  STEPPER_PORT |= (1 << BUTTON_BIT);
+
+  /* set DIR according to JOG_DIR*/
   if (JOG_DIR) {
     STEPPER_PORT |= (1 << DIR_BIT);
   } else {
     STEPPER_PORT &= ~(1 << DIR_BIT);
   }
-  /* TODO: ensure STEP starts low                                            */
 
+  /* ensure STEP starts low*/
   STEPPER_PORT &= ~(1 << STEP_BIT);
 }
 
