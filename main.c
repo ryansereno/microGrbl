@@ -122,6 +122,10 @@
 #define STEPPER_PORT PORTD
 #define STEPPER_PIN PIND
 
+#define BUTTON_DDR DDRD
+#define BUTTON_PORT PORTD
+#define BUTTON_PIN PIND
+
 /* --- 4. Tuning knobs --------------------------------------------------------
  * STEP_PULSE_US:   how long STEP stays HIGH. >= driver minimum.
  * STEP_PERIOD_US:  total time from one rising edge to the next.
@@ -226,10 +230,10 @@
 #define BUTTON_BIT PD5
 
 static uint8_t button_pressed(void) {
-  if (!(STEPPER_PIN & (1 << BUTTON_BIT))) {
+  if (!(BUTTON_PIN & (1 << BUTTON_BIT))) {
     _delay_ms(50);
 
-    if (!(STEPPER_PIN & (1 << BUTTON_BIT))) {
+    if (!(BUTTON_PIN & (1 << BUTTON_BIT))) {
       return 1;
     } else {
       return 0;
@@ -251,13 +255,13 @@ static void pins_init(void) {
   STEPPER_DDR |= (1 << STEP_BIT) | (1 << DIR_BIT) | (1 << ENABLE_BIT);
 
   /* make BUTTON input*/
-  STEPPER_DDR &= ~(1 << BUTTON_BIT);
+  BUTTON_DDR &= ~(1 << BUTTON_BIT);
 
   /* drive ENABLE low to enable the driver*/
   STEPPER_PORT |= (1 << ENABLE_BIT);
 
   /* set BUTTON pin to use  pull-up resistor*/
-  STEPPER_PORT |= (1 << BUTTON_BIT);
+  BUTTON_PORT |= (1 << BUTTON_BIT);
 
   /* set DIR according to JOG_DIR*/
   if (JOG_DIR) {
@@ -315,8 +319,7 @@ static void jog(dir_t dir, uint16_t steps) {
  */
 int main(void) {
   pins_init();
-  /* TODO: call jog(JOG_DIR, JOG_STEPS); */
-
+  /* call jog(JOG_DIR, JOG_STEPS); */
   for (;;) {
     /* idle forever. grbl would sleep the CPU here and wake on interrupt. */
     if (button_pressed()) {
