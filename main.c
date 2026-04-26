@@ -64,7 +64,7 @@
  * xtal) Driver:   A4988 / DRV8825 / TMC2208 (any STEP+DIR-style stepper driver)
  * Purpose:  Learn the same skeleton grbl uses to drive steppers. Nothing more.
  *
- * Wiring (suggested — change to match your board):
+ * Wiring :
  *   MCU pin              Driver pin      Arduino label
  *   --------------------------------------------------
  *   PD2  (STEP)     ->   STEP            D2
@@ -230,17 +230,19 @@
 #define BUTTON_BIT PD5
 
 static uint8_t button_pressed(void) {
+  static uint8_t previous = 0;
+  uint8_t now = 0;
+
   if (!(BUTTON_PIN & (1 << BUTTON_BIT))) {
     _delay_ms(50);
-
     if (!(BUTTON_PIN & (1 << BUTTON_BIT))) {
-      return 1;
-    } else {
-      return 0;
+      now = 1;
     }
-  } else {
-    return 0;
   }
+
+  uint8_t edge = (now && !previous);
+  previous = now;
+  return edge;
 }
 
 /* --- 7. Configure pins as outputs -------------------------------------------
