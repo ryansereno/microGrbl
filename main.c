@@ -60,12 +60,12 @@
  *           if (!(reg & (1 << n))) { }
  *
  * ----------------------------------------------------------------------------
- * Target:   ATmega328P @ 16 MHz (Arduino Uno / Nano / bare chip w/ external
+ * Target:   ATmega328P @ 16 MHz ( Uno / Nano / bare chip w/ external
  * xtal) Driver:   A4988 / DRV8825 / TMC2208 (any STEP+DIR-style stepper driver)
  * Purpose:  Learn the same skeleton grbl uses to drive steppers. Nothing more.
  *
  * Wiring :
- *   MCU pin              Driver pin      Arduino label
+ *   MCU pin              Driver pin      Board label
  *   --------------------------------------------------
  *   PD2  (STEP)     ->   STEP            D2
  *   PD3  (DIR)      ->   DIR             D3
@@ -89,7 +89,7 @@
  * Define it BEFORE including delay.h. You can also pass -DF_CPU=16000000UL
  * on the avr-gcc command line and skip defining it here — pick one.
  *
- * Arduino Uno/Nano: 16 MHz crystal -> 16000000UL
+ * 16 MHz crystal -> 16000000UL
  */
 #define F_CPU 16000000UL
 
@@ -137,7 +137,7 @@
  *      that's 0.156 rev/sec — nice and visible.
  */
 #define STEP_PULSE_US 2
-#define STEP_PERIOD_US 6000
+#define STEP_PERIOD_US 250
 
 /* --- 5. The "args" (compile-time for now) -----------------------------------
  * Change these, recompile, reflash. Later, replace with UART parsing.
@@ -279,9 +279,9 @@ static void pins_init(void) {
 /* --- 8. One step ------------------------------------------------------------
  * Emit one step pulse. Sequence:
  *     STEP high
- *     _delay_us(STEP_PULSE_US)
+ *     delay
  *     STEP low
- *     _delay_us(STEP_PERIOD_US - STEP_PULSE_US)
+ *     delay(STEP_PERIOD_US - STEP_PULSE_US)
  *
  * Gotcha: _delay_us() wants a *compile-time constant*. That's fine here since
  * our constants are #defines. If you ever want a runtime-variable delay,
@@ -326,7 +326,7 @@ int main(void) {
     /* idle forever. grbl would sleep the CPU here and wake on interrupt. */
     if (button_pressed()) {
       // 90 degrees at 1/16 microstepping = 800 steps
-      jog(DIR_FWD, 800);
+      jog(DIR_FWD, 1600);
     }
   }
 
@@ -351,4 +351,8 @@ int main(void) {
  *  4. Add a second motor. Now you need Bresenham to coordinate them so they
  *     finish their step counts together. This is where grbl gets interesting.
  * ============================================================================
+avr-gcc -mmcu=atmega328p -DF_CPU=16000000UL -Os -o stepper.elf stepper.c
+avr-objcopy -O ihex -R .eeprom stepper.elf stepper.hex
+avrdude -c arduino -p m328p -P /dev/cu.usbserial-210 -b 115200 -U
+flash:w:stepper.hex:i
  */
